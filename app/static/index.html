@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Document Research Agent</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #6b7385; --border: #e2e5eb;
+      --accent: #0f8a6b; --accent-text: #ffffff; --user-bg: #0f8a6b; --bot-bg: #f0f2f6;
+      --chip-bg: #e6f5f0; --chip-text: #0b6650; --error: #c0392b; --hover: #f2f4f7;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #11151a; --panel: #1a1f26; --text: #e6e9ef; --muted: #8d95a7; --border: #2a303c;
+        --accent: #2fbf95; --accent-text: #0b1a15; --user-bg: #1d7a61; --bot-bg: #232834;
+        --chip-bg: #183a31; --chip-text: #7fdcbd; --error: #ff7a6b; --hover: #222833;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+    .app { max-width: 1100px; margin: 0 auto; height: 100dvh; padding: 16px; display: grid;
+           grid-template-columns: 280px 1fr; grid-template-rows: auto 1fr; gap: 12px 16px; }
+    header { grid-column: 1 / -1; }
+    header h1 { margin: 0; font-size: 20px; }
+    header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+    aside, main { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; min-height: 0; }
+    aside { padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+    aside h2 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .doc { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px; border: 1px solid var(--border); }
+    .doc .info { flex: 1; min-width: 0; }
+    .doc .name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc .meta { font-size: 12px; color: var(--muted); }
+    .doc button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 6px; }
+    .doc button:hover { background: var(--hover); color: var(--error); }
+    .upload { display: block; text-align: center; padding: 10px; border: 1px dashed var(--border); border-radius: 8px;
+              color: var(--muted); cursor: pointer; font-size: 14px; }
+    .upload:hover { border-color: var(--accent); color: var(--text); }
+    .upload input { display: none; }
+    #upload-status { font-size: 13px; color: var(--muted); min-height: 1em; }
+    main { display: flex; flex-direction: column; overflow: hidden; }
+    #log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .msg { max-width: 88%; padding: 10px 14px; border-radius: 12px; }
+    .user { align-self: flex-end; background: var(--user-bg); color: #fff; white-space: pre-wrap; }
+    .bot { align-self: flex-start; background: var(--bot-bg); }
+    .error { align-self: flex-start; color: var(--error); font-size: 14px; }
+    .answer p { margin: 0 0 6px; } .answer ul { margin: 0 0 6px; padding-left: 20px; }
+    sup.cite { color: var(--chip-text); background: var(--chip-bg); border-radius: 4px; padding: 0 4px; font-size: 11px;
+               cursor: pointer; margin-left: 1px; }
+    .sources { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; font-size: 13px; }
+    .sources details { margin: 4px 0; }
+    .sources summary { cursor: pointer; color: var(--chip-text); }
+    .sources blockquote { margin: 4px 0 6px; padding: 6px 10px; border-left: 3px solid var(--accent); color: var(--muted);
+                          background: var(--panel); border-radius: 0 6px 6px 0; }
+    .trace { font-size: 12px; color: var(--muted); margin-top: 6px; font-family: ui-monospace, monospace; }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .suggestions button { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 999px;
+                          padding: 6px 12px; cursor: pointer; font: inherit; font-size: 13px; }
+    .suggestions button:hover { border-color: var(--accent); }
+    form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
+    input[type=text] { flex: 1; min-width: 0; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
+                       background: var(--bg); color: var(--text); font: inherit; }
+    input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+    form button { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 10px; padding: 0 18px;
+                  font: inherit; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: default; }
+    @media (max-width: 760px) {
+      .app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; height: auto; min-height: 100dvh; }
+      main { min-height: 70dvh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Document Research Agent</h1>
+      <p>Upload PDFs or text files and ask questions. Every answer cites the passages it came from.</p>
+    </header>
+    <aside>
+      <h2>Documents</h2>
+      <div id="docs"></div>
+      <label class="upload">+ Upload PDF, TXT or MD<input type="file" id="file" accept=".pdf,.txt,.md"></label>
+      <div id="upload-status"></div>
+    </aside>
+    <main>
+      <div id="log">
+        <div class="msg bot">Ask me anything about your documents. Two sample documents are loaded. Try:</div>
+        <div class="suggestions">
+          <button>How much is the meal allowance when travelling?</button>
+          <button>Which CloudVault plan keeps backups for a year, and what does it cost?</button>
+          <button>What happens to my data if I lose my private encryption key?</button>
+          <button>What is the company's stock option policy?</button>
+        </div>
+      </div>
+      <form id="form">
+        <input type="text" id="input" placeholder="Ask a question about your documents…" autocomplete="off" maxlength="2000" required>
+        <button type="submit">Ask</button>
+      </form>
+    </main>
+  </div>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const log = $("log"), input = $("input"), askBtn = $("form").querySelector("button");
+    const history = [];
+
+    const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    // Safe Markdown subset (bold, code, bullets), with [S12] citations turned into numbered links.
+    function renderAnswer(text, numbers) {
+      const inline = (s) => s
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\s*\[(\s*S\d+\s*(?:[,;]\s*S\d+\s*)*)\]/g, (_, group) =>
+          group.match(/S\d+/g).filter((id) => numbers[id])
+            .map((id) => `<sup class="cite" data-id="${id}">${numbers[id]}</sup>`).join(""));
+      let html = "", inList = false;
+      for (const line of escapeHtml(text).split("\n")) {
+        const item = line.match(/^\s*[-*•]\s+(.*)/);
+        if (item) { if (!inList) { html += "<ul>"; inList = true; } html += `<li>${inline(item[1])}</li>`; continue; }
+        if (inList) { html += "</ul>"; inList = false; }
+        if (line.trim()) html += `<p>${inline(line)}</p>`;
+      }
+      return html + (inList ? "</ul>" : "");
+    }
+
+    function add(cls, text) {
+      const div = document.createElement("div");
+      div.className = "msg " + cls;
+      if (text) div.textContent = text;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      return div;
+    }
+
+    async function loadDocs() {
+      const docs = await (await fetch("/api/documents")).json();
+      $("docs").innerHTML = docs.length ? "" : '<div class="doc"><div class="meta">No documents yet.</div></div>';
+      for (const d of docs) {
+        const row = document.createElement("div");
+        row.className = "doc";
+        row.innerHTML = `<div class="info"><div class="name"></div><div class="meta"></div></div><button title="Delete">✕</button>`;
+        row.querySelector(".name").textContent = d.name;
+        row.querySelector(".meta").textContent = `${d.pages ? d.pages + " pages · " : ""}${d.chunks} chunks`;
+        row.querySelector("button").onclick = async () => {
+          if (!confirm(`Delete ${d.name}?`)) return;
+          await fetch(`/api/documents/${d.id}`, { method: "DELETE" });
+          loadDocs();
+        };
+        $("docs").appendChild(row);
+      }
+    }
+
+    $("file").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      $("upload-status").textContent = `Processing ${file.name}…`;
+      const form = new FormData();
+      form.append("file", file);
+      try {
+        const res = await fetch("/api/documents", { method: "POST", body: form });
+        const data = await res.json();
+        $("upload-status").textContent = res.ok ? `Added ${data.name} (${data.chunks} chunks).` : data.detail;
+        loadDocs();
+      } catch { $("upload-status").textContent = "Upload failed."; }
+      e.target.value = "";
+    });
+
+    async function ask(question) {
+      add("user", question);
+      input.value = "";
+      askBtn.disabled = true;
+      const thinking = add("bot", "Searching your documents…");
+      try {
+        const res = await fetch("/api/ask", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, history: history.slice(-20) }),
+        });
+        const data = await res.json();
+        thinking.remove();
+        if (!res.ok) { add("error", typeof data.detail === "string" ? data.detail : "Something went wrong."); return; }
+
+        const numbers = {};
+        data.citations.forEach((c, i) => (numbers[c.source_id] = i + 1));
+        const bubble = add("bot");
+        bubble.innerHTML = `<div class="answer">${renderAnswer(data.answer, numbers)}</div>`;
+
+        if (data.citations.length) {
+          const sources = document.createElement("div");
+          sources.className = "sources";
+          data.citations.forEach((c, i) => {
+            const d = document.createElement("details");
+            d.id = `src-${c.source_id}-${log.children.length}`;
+            d.innerHTML = `<summary></summary><blockquote></blockquote>`;
+            d.querySelector("summary").textContent = `[${i + 1}] ${c.document}${c.page ? ", page " + c.page : ""}`;
+            d.querySelector("blockquote").textContent = c.text;
+            d.dataset.id = c.source_id;
+            sources.appendChild(d);
+          });
+          bubble.appendChild(sources);
+          bubble.querySelectorAll("sup.cite").forEach((sup) => sup.onclick = () => {
+            const d = sources.querySelector(`details[data-id="${sup.dataset.id}"]`);
+            d.open = true; d.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          });
+        }
+        const trace = document.createElement("div");
+        trace.className = "trace";
+        const searches = data.tool_calls.filter((t) => t.name === "search_documents").map((t) => `"${t.arguments.query}"`);
+        trace.textContent = `${searches.length ? "searched " + searches.join(", ") + " · " : ""}${data.latency_ms} ms`;
+        bubble.appendChild(trace);
+        history.push({ role: "user", content: question }, { role: "assistant", content: data.answer });
+      } catch {
+        thinking.remove();
+        add("error", "Could not reach the server.");
+      } finally {
+        askBtn.disabled = false;
+        input.focus();
+      }
+    }
+
+    $("form").addEventListener("submit", (e) => { e.preventDefault(); if (input.value.trim()) ask(input.value.trim()); });
+    document.querySelectorAll(".suggestions button").forEach((b) => b.addEventListener("click", () => ask(b.textContent)));
+    loadDocs();
+  </script>
+</body>
+</html>
