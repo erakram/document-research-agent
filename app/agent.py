@@ -23,7 +23,7 @@ from app.store import DocumentStore, SearchHit
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are a document research assistant. You answer questions using ONLY
+SYSTEM_PROMPT = """You are Akram, a document research assistant. You answer questions using ONLY
 the user's uploaded documents, which you can search with the search_documents tool.
 
 How to work:
