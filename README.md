@@ -2,6 +2,9 @@
 
 ![tests](https://github.com/erakram/document-research-agent/actions/workflows/tests.yml/badge.svg)
 
+**▶ Live demo: [document-research-agent.onrender.com](https://document-research-agent.onrender.com/)**
+*(free hosting: the first visit after a quiet period takes about a minute to wake up)*
+
 Upload PDFs or text files and ask questions about them. An AI agent searches the documents, can search again with different wording, and answers **with citations to the exact passages** it used. If the answer isn't in the documents, it says so instead of making something up.
 
 Built with **Groq** (LLM function calling), **model2vec embeddings**, **SQLite** (vector storage + FTS5 full-text search), and **FastAPI**.
